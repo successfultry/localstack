@@ -32,7 +32,8 @@ class Settings:
             rag_include=_split(
                 os.getenv(
                     "RAG_INCLUDE",
-                    "README.md,DOCKER.md,AGENTS.md,docs/*.md,docs/**/*.md,docs/*.rst,docs/**/*.rst",
+                    "README.md,DOCKER.md,AGENTS.md,docs/**/*.md,docs/**/*.rst,"
+                    "localstack-core/localstack/openapi.yaml",
                 )
             ),
             index_path=REPO_ROOT / os.getenv("INDEX_PATH", "ai_assistant/.index.db"),

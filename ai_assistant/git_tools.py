@@ -15,9 +15,13 @@ _ALLOWED = {"rev-parse", "branch", "ls-files", "diff", "status", "log"}
 def _git(*args: str) -> str:
     if not args or args[0] not in _ALLOWED:
         raise ValueError(f"git subcommand not allowed: {args[:1]}")
+    # stdin=DEVNULL is required: under the MCP stdio server the child would
+    # otherwise inherit the server's stdin (the JSON-RPC pipe) and corrupt the
+    # transport on Windows (anyio BrokenResourceError).
     proc = subprocess.run(
         ["git", *args],
         cwd=REPO_ROOT,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=30,
