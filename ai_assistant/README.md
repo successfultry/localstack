@@ -157,16 +157,68 @@ ai_assistant/store.py
 bye
 ```
 
-### Done / not done
+## Day 32 — AI PR Review Pipeline
 
-- Done: docs+openapi RAG with citations, incremental SQLite index, anti-hallucination fallback,
-  persistent MCP client, read-only git tools (branch/files/diff), `/help` loop.
-- Not done (later): Day 32 PR code-review pipeline (`reviewer.py` + `.github/workflows/`),
-  code search tools over source.
+### Goal
+
+Reactive PR review that runs on GitHub Actions and posts one summary comment with:
+
+- potential bugs
+- architectural concerns
+- recommendations
+
+### Implementation
+
+- `ai_assistant/reviewer.py`:
+  - reads PR context (number/repo) from CLI args or `GITHUB_EVENT_PATH`
+  - loads changed files + diff via `gh pr view` / `gh pr diff`
+  - uses docs RAG (README/docs/openapi) for policy/context
+  - passes changed code directly from diff into the review prompt
+  - generates review with OpenAI and model fallback `gpt-5.5 -> gpt-4o` on unavailable model
+  - posts/updates a single PR comment marked with `<!-- localstack-ai-review -->`
+- `.github/workflows/ai-review.yml`:
+  - trigger: `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`)
+  - concurrency per PR with cancel-in-progress
+  - minimal permissions: `contents: read`, `pull-requests: write`
+  - caches `ai_assistant/.index.db` with `actions/cache`
+  - builds index on cache miss via `python -m ai_assistant.reviewer --reindex-only`
+  - runs reviewer via `python -m ai_assistant.reviewer`
+
+### Day 32 local checks
+
+```bash
+python -m py_compile ai_assistant/reviewer.py
+python -m ai_assistant.reviewer --reindex-only
+# Optional local test when you have repo/pr context:
+# python -m ai_assistant.reviewer --repo successfultry/localstack --pr 123 --dry-run
+```
+
+### Day 32 demo flow
+
+1. Push branch with `.github/workflows/ai-review.yml` and `ai_assistant/reviewer.py`.
+2. Open or update a PR in `successfultry/localstack`.
+3. Wait for `AI Review` workflow to finish.
+4. Show the bot summary comment in the PR discussion.
+
+### Day 32 FAQ (from chat)
+
+- Do I need to host my own external service?  
+  No. For this task, GitHub Actions runs everything on the GitHub runner. You only add
+  `OPENAI_API_KEY` as a GitHub secret.
+- Must it be reactive (automatic), not manual?  
+  Yes. The required mode is trigger-based (`pull_request`), not a manually started local script.
+- Must this be part of the same project, or can it be separate?  
+  Both are acceptable in general, but here it is integrated into this repo as a coherent Week 7
+  continuation.
+
+### Done / next
+
+- Done: Day 31 local assistant + Day 32 reactive PR review pipeline.
+- Next (optional): inline comments by diff position, code-search tools for broader context.
 
 ## Progress
 
 | Day | Task | Commands | Code | Status | Video |
 |-----|------|----------|------|--------|-------|
 | 31 | Developer assistant: RAG over README/docs/openapi + MCP git context + `/help` | `-m ai_assistant.main --reindex`, then `/help ...`, `/branch`, `/files ai_assistant` | `config.py`, `llm_client.py`, `rag.py`, `store.py`, `git_tools.py`, `cli.py`, `main.py` | done | _link_ |
-| 32 | AI code review on a PR | — | `reviewer.py`, `.github/workflows/ai-review.yml` | todo | _link_ |
+| 32 | Reactive AI code review on PR (`pull_request` trigger, summary comment) | `-m ai_assistant.reviewer --reindex-only`, workflow run on PR | `reviewer.py`, `.github/workflows/ai-review.yml` | done | _link_ |

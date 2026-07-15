@@ -1,0 +1,51 @@
+name: AI Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ai-review:
+    if: ${{ github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LLM_MODEL: gpt-5.5
+      EMBED_MODEL: text-embedding-3-large
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r ai_assistant/requirements.txt
+
+      - name: Cache RAG index
+        id: rag-cache
+        uses: actions/cache@v4
+        with:
+          path: ai_assistant/.index.db
+          key: ai-review-index-${{ runner.os }}-${{ hashFiles('README.md', 'DOCKER.md', 'AGENTS.md', 'docs/**/*.md', 'docs/**/*.rst', 'localstack-core/localstack/openapi.yaml', 'ai_assistant/config.py', 'ai_assistant/rag.py', 'ai_assistant/store.py', 'ai_assistant/reviewer.py') }}
+          restore-keys: |
+            ai-review-index-${{ runner.os }}-
+
+      - name: Build RAG index (cache miss)
+        if: steps.rag-cache.outputs.cache-hit != 'true'
+        run: python -m ai_assistant.reviewer --reindex-only
+
+      - name: Run AI review for PR
+        run: python -m ai_assistant.reviewer
