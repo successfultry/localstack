@@ -1,0 +1,59 @@
+[
+  {
+    "ticket_id": "TCK-1001",
+    "user_id": "u_100",
+    "subject": "Authorization fails in LocalStack",
+    "status": "open",
+    "product_area": "auth",
+    "severity": "high",
+    "error": "SignatureDoesNotMatch",
+    "last_user_message": "Почему не работает авторизация при запросах к S3?",
+    "history": [
+      "User switched from AWS endpoint to LocalStack endpoint recently",
+      "Access key was rotated last week"
+    ]
+  },
+  {
+    "ticket_id": "TCK-2002",
+    "user_id": "u_200",
+    "subject": "LocalStack container exits immediately",
+    "status": "open",
+    "product_area": "runtime",
+    "severity": "high",
+    "error": "ContainerRestartLoop",
+    "last_user_message": "Container restarts every 5 seconds after docker compose up.",
+    "history": [
+      "User updated Docker Desktop yesterday",
+      "Disk space warning appeared once"
+    ]
+  },
+  {
+    "ticket_id": "TCK-3003",
+    "user_id": "u_200",
+    "subject": "S3 put_object hits wrong endpoint",
+    "status": "open",
+    "product_area": "s3",
+    "severity": "medium",
+    "error": "PermanentRedirect",
+    "last_user_message": "SDK requests are redirected and then fail on localhost.",
+    "history": [
+      "Project uses custom endpoint_url in shared boto3 config",
+      "Region in environment is eu-central-1"
+    ]
+  },
+  {
+    "ticket_id": "TCK-4004",
+    "user_id": "u_300",
+    "subject": "Pro feature unavailable after login",
+    "status": "open",
+    "product_area": "licensing",
+    "severity": "medium",
+    "error": "LicenseNotActive",
+    "last_user_message": "Feature says Pro required even though our account is Pro.",
+    "history": [
+      "Team moved to a new CI runner",
+      "LOCALSTACK_AUTH_TOKEN was set through secret manager"
+    ]
+  }
+]
+

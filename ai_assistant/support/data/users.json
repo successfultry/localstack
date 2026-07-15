@@ -1,0 +1,27 @@
+[
+  {
+    "user_id": "u_100",
+    "name": "Victor",
+    "plan": "community",
+    "os_docker": "Windows 11 + Docker Desktop 4.32 (WSL2)",
+    "localstack_version": "3.7.2",
+    "preferred_language": "ru"
+  },
+  {
+    "user_id": "u_200",
+    "name": "Maya",
+    "plan": "team",
+    "os_docker": "macOS Sonoma + Docker Desktop 4.33",
+    "localstack_version": "3.8.0",
+    "preferred_language": "en"
+  },
+  {
+    "user_id": "u_300",
+    "name": "Ibrahim",
+    "plan": "pro",
+    "os_docker": "Ubuntu 24.04 + Docker Engine 27",
+    "localstack_version": "3.8.1",
+    "preferred_language": "en"
+  }
+]
+

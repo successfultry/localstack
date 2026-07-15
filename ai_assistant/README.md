@@ -15,6 +15,15 @@ ai_assistant/
 ├── rag.py           # discover -> chunk -> embed -> retrieve, with citations
 ├── store.py         # SQLite vector store + sha-based incremental reindex
 ├── git_tools.py     # MCP server (FastMCP): read-only git tools
+├── reviewer.py      # Day 32 PR review pipeline
+├── support/         # Day 33 support assistant mini-service
+│   ├── assistant.py # support orchestration + one-shot CLI
+│   ├── crm_tools.py # JSON CRM MCP tools (also callable as plain funcs)
+│   ├── service.py   # stdlib HTTP service (/health, /support/answer)
+│   └── data/
+│       ├── users.json
+│       ├── tickets.json
+│       └── faq.md
 ├── requirements.txt
 ├── .env.example
 └── README.md
@@ -43,7 +52,7 @@ The assistant is OpenAI-only: one key for both Responses API chat and embeddings
 OPENAI_API_KEY=sk-your-openai-key
 LLM_MODEL=gpt-5.5
 EMBED_MODEL=text-embedding-3-large
-RAG_INCLUDE=README.md,DOCKER.md,AGENTS.md,docs/**/*.md,docs/**/*.rst,localstack-core/localstack/openapi.yaml
+RAG_INCLUDE=README.md,DOCKER.md,AGENTS.md,docs/**/*.md,docs/**/*.rst,localstack-core/localstack/openapi.yaml,ai_assistant/support/data/faq.md
 INDEX_PATH=ai_assistant/.index.db
 ```
 
@@ -216,9 +225,104 @@ python -m ai_assistant.reviewer --reindex-only
 - Done: Day 31 local assistant + Day 32 reactive PR review pipeline.
 - Next (optional): inline comments by diff position, code-search tools for broader context.
 
+## Day 33 — User Support Assistant
+
+### Goal
+
+Mini support assistant for LocalStack that answers user questions with:
+
+- CRM context (user profile + ticket details)
+- RAG over project docs/openapi + support FAQ
+- clear anti-hallucination behavior when docs are insufficient
+
+### Architecture
+
+- `support/crm_tools.py`:
+  - local JSON CRM (`support/data/users.json`, `support/data/tickets.json`)
+  - functions: `get_ticket`, `get_user`, `list_user_tickets`
+  - same functions exposed as FastMCP tools (`python -m ai_assistant.support.crm_tools`)
+- `support/assistant.py`:
+  - orchestrates ticket/user fetch + RAG retrieval + LLM answer generation
+  - one-shot CLI entry:
+    - `python -m ai_assistant.support.assistant --ticket TCK-1001 --question "..."`
+  - response JSON fields:
+    - `ticket_id`, `answer`, `sources`, `user_context_used`, `ticket`, `user`
+- `support/service.py`:
+  - stdlib `http.server` mini-service (no FastAPI)
+  - endpoints:
+    - `GET /health`
+    - `POST /support/answer` with body `{"ticket_id":"...","question":"..."}`
+
+### Anti-hallucination behavior
+
+- Uses existing `rag.MIN_SCORE`.
+- If no retrieved chunk is above threshold, assistant explicitly says docs context is insufficient,
+  does not invent LocalStack facts, and answers only from ticket/user context.
+
+### Day 33 run commands
+
+```bash
+python -m py_compile ai_assistant/support/*.py
+
+# optional upfront reindex
+python -m ai_assistant.support.service --reindex
+
+# primary demo path (Windows-friendly for Cyrillic)
+python -m ai_assistant.support.assistant --ticket TCK-1001 --question "Почему не работает авторизация?"
+```
+
+HTTP mode:
+
+```bash
+python -m ai_assistant.support.service --host 127.0.0.1 --port 8787
+
+curl -s -X POST "http://127.0.0.1:8787/support/answer" \
+  -H "Content-Type: application/json" \
+  -d '{"ticket_id":"TCK-1001","question":"Почему не работает авторизация?"}'
+```
+
+### Example output shape
+
+```json
+{
+  "ticket_id": "TCK-1001",
+  "answer": "Диагноз ...",
+  "sources": [
+    "ai_assistant/support/data/faq.md",
+    "localstack-core/localstack/openapi.yaml"
+  ],
+  "user_context_used": {
+    "user_id": "u_100",
+    "plan": "community",
+    "os_docker": "Windows 11 + Docker Desktop 4.32 (WSL2)",
+    "localstack_version": "3.7.2",
+    "preferred_language": "ru"
+  },
+  "ticket": {},
+  "user": {}
+}
+```
+
+### What to verify
+
+- `python -m ai_assistant.support.assistant ...` returns JSON with non-empty `answer`.
+- `sources` includes FAQ/docs when relevant.
+- unknown ticket returns clear error.
+- `/health` returns `{"status":"ok"}`.
+- Russian question/user gives Russian answer.
+
+### Day 33 video flow
+
+1. Show `support/data/users.json` + `support/data/tickets.json` + `support/data/faq.md`.
+2. Run one-shot CLI command with Russian question.
+3. Show answer structure: diagnosis, cause, steps, follow-up data request, sources.
+4. Start HTTP service, hit `/health`.
+5. Call `/support/answer` via `curl` and show JSON response.
+
 ## Progress
 
 | Day | Task | Commands | Code | Status | Video |
 |-----|------|----------|------|--------|-------|
 | 31 | Developer assistant: RAG over README/docs/openapi + MCP git context + `/help` | `-m ai_assistant.main --reindex`, then `/help ...`, `/branch`, `/files ai_assistant` | `config.py`, `llm_client.py`, `rag.py`, `store.py`, `git_tools.py`, `cli.py`, `main.py` | done | _link_ |
 | 32 | Reactive AI code review on PR (`pull_request` trigger, summary comment) | `-m ai_assistant.reviewer --reindex-only`, workflow run on PR | `reviewer.py`, `.github/workflows/ai-review.yml` | done | _link_ |
+| 33 | User support assistant (CRM JSON + MCP tools + RAG FAQ/docs + HTTP mini-service) | `-m ai_assistant.support.assistant --ticket ... --question ...`, optional `-m ai_assistant.support.service` | `support/crm_tools.py`, `support/assistant.py`, `support/service.py`, `support/data/*`, `config.py`, `.env.example`, `README.md` | done | _link_ |

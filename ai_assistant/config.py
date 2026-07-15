@@ -33,7 +33,7 @@ class Settings:
                 os.getenv(
                     "RAG_INCLUDE",
                     "README.md,DOCKER.md,AGENTS.md,docs/**/*.md,docs/**/*.rst,"
-                    "localstack-core/localstack/openapi.yaml",
+                    "localstack-core/localstack/openapi.yaml,ai_assistant/support/data/faq.md",
                 )
             ),
             index_path=REPO_ROOT / os.getenv("INDEX_PATH", "ai_assistant/.index.db"),
