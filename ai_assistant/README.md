@@ -269,6 +269,9 @@ python -m ai_assistant.support.service --reindex
 
 # primary demo path (Windows-friendly for Cyrillic)
 python -m ai_assistant.support.assistant --ticket TCK-1001 --question "Почему не работает авторизация?"
+
+# English example
+python -m ai_assistant.support.assistant --ticket TCK-2002 --question "Why is authorization failing?"
 ```
 
 HTTP mode:
@@ -279,6 +282,10 @@ python -m ai_assistant.support.service --host 127.0.0.1 --port 8787
 curl -s -X POST "http://127.0.0.1:8787/support/answer" \
   -H "Content-Type: application/json" \
   -d '{"ticket_id":"TCK-1001","question":"Почему не работает авторизация?"}'
+
+curl -s -X POST "http://127.0.0.1:8787/support/answer" \
+  -H "Content-Type: application/json" \
+  -d '{"ticket_id":"TCK-2002","question":"Why is authorization failing?"}'
 ```
 
 ### Example output shape
