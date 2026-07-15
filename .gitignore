@@ -23,6 +23,10 @@ package-lock.json
 .env
 venv
 /.venv*
+
+# AI Advent Week 7 assistant
+ai_assistant/.index.db
+ai_assistant/*.db
 /.coverage
 .settings/
 .project
