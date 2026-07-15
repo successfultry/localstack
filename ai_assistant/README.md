@@ -246,7 +246,8 @@ Mini support assistant for LocalStack that answers user questions with:
   - one-shot CLI entry:
     - `python -m ai_assistant.support.assistant --ticket TCK-1001 --question "..."`
   - response JSON fields:
-    - `ticket_id`, `answer`, `sources`, `user_context_used`, `ticket`, `user`
+    - `ticket_id`, `language`, `diagnosis`, `likely_causes`, `steps`, `need_from_user`,
+      `confidence`, `escalate`, `sources`, `user_context_used`
 - `support/service.py`:
   - stdlib `http.server` mini-service (no FastAPI)
   - endpoints:
@@ -293,7 +294,21 @@ curl -s -X POST "http://127.0.0.1:8787/support/answer" \
 ```json
 {
   "ticket_id": "TCK-1001",
-  "answer": "Диагноз ...",
+  "language": "ru",
+  "diagnosis": "Короткий диагноз ...",
+  "likely_causes": [
+    "Cause 1",
+    "Cause 2"
+  ],
+  "steps": [
+    "Step 1",
+    "Step 2"
+  ],
+  "need_from_user": [
+    "Data request 1"
+  ],
+  "confidence": 0.78,
+  "escalate": false,
   "sources": [
     "ai_assistant/support/data/faq.md",
     "localstack-core/localstack/openapi.yaml"
@@ -304,15 +319,13 @@ curl -s -X POST "http://127.0.0.1:8787/support/answer" \
     "os_docker": "Windows 11 + Docker Desktop 4.32 (WSL2)",
     "localstack_version": "3.7.2",
     "preferred_language": "ru"
-  },
-  "ticket": {},
-  "user": {}
+  }
 }
 ```
 
 ### What to verify
 
-- `python -m ai_assistant.support.assistant ...` returns JSON with non-empty `answer`.
+- `python -m ai_assistant.support.assistant ...` returns JSON with non-empty `diagnosis`.
 - `sources` includes FAQ/docs when relevant.
 - unknown ticket returns clear error.
 - `/health` returns `{"status":"ok"}`.

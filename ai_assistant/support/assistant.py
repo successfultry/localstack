@@ -74,6 +74,74 @@ def _render_sources(hits: list[Hit]) -> list[str]:
     return out
 
 
+def _extract_json_object(raw: str) -> dict[str, Any] | None:
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    candidate = raw[start : end + 1]
+    try:
+        parsed = json.loads(candidate)
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _as_str_list(value: Any, max_items: int) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text:
+            out.append(text)
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def _clamp_confidence(value: Any, default: float) -> float:
+    try:
+        val = float(value)
+    except (TypeError, ValueError):
+        val = default
+    return max(0.0, min(1.0, val))
+
+
+def _normalize_structured_answer(
+    raw_answer: str, lang: str, default_confidence: float, default_escalate: bool
+) -> dict[str, Any]:
+    payload = _extract_json_object(raw_answer) or {}
+    diagnosis = str(payload.get("diagnosis", "")).strip()
+    if not diagnosis:
+        diagnosis = raw_answer.strip()[:600] or (
+            "Не удалось получить структурированный ответ." if lang == "ru" else "Failed to get structured answer."
+        )
+    likely_causes = _as_str_list(payload.get("likely_causes"), max_items=5)
+    steps = _as_str_list(payload.get("steps"), max_items=6)
+    need_from_user = _as_str_list(payload.get("need_from_user"), max_items=5)
+    confidence = _clamp_confidence(payload.get("confidence"), default=default_confidence)
+    escalate = payload.get("escalate", default_escalate)
+    return {
+        "language": "ru" if lang == "ru" else "en",
+        "diagnosis": diagnosis,
+        "likely_causes": likely_causes,
+        "steps": steps,
+        "need_from_user": need_from_user,
+        "confidence": confidence,
+        "escalate": bool(escalate),
+    }
+
+
 def answer_support_question(ticket_id: str, question: str, reindex: bool = False) -> dict[str, Any]:
     settings = Settings.load()
     if not settings.openai_api_key:
@@ -98,15 +166,16 @@ def answer_support_question(ticket_id: str, question: str, reindex: bool = False
         useful_hits = [h for h in hits if h.score >= MIN_SCORE]
         lang = _pick_language(question, str(user.get("preferred_language", "")))
 
-        if lang == "ru":
-            lang_instruction = "Отвечай на русском."
-        else:
-            lang_instruction = "Answer in English."
+        lang_instruction = (
+            "All user-facing text values must be in Russian."
+            if lang == "ru"
+            else "All user-facing text values must be in English."
+        )
 
         if useful_hits:
             docs_instruction = (
                 "Use documentation context when making product claims. "
-                "Cite sources inline as [path]."
+                "Do not include citations in text fields; sources are returned separately."
             )
         else:
             docs_instruction = (
@@ -118,8 +187,11 @@ def answer_support_question(ticket_id: str, question: str, reindex: bool = False
         system = (
             "You are a LocalStack support assistant.\n"
             f"{lang_instruction}\n"
-            "Write a concise support response with this structure:\n"
-            "1) Diagnosis\n2) Likely cause\n3) Step-by-step fix\n4) What to ask next if needed.\n"
+            "Return ONLY valid JSON object with keys:\n"
+            "diagnosis (string), likely_causes (array of strings), steps (array of strings),\n"
+            "need_from_user (array of strings), confidence (number 0..1), escalate (boolean).\n"
+            "Keep diagnosis under 3 short sentences. Keep steps actionable and concise.\n"
+            "Do not return markdown, code fences, or extra keys.\n"
             f"{docs_instruction}"
         )
 
@@ -130,6 +202,14 @@ def answer_support_question(ticket_id: str, question: str, reindex: bool = False
             f"Documentation context:\n{_format_doc_context(useful_hits)}"
         )
         answer = _chat_with_fallback(settings, system, prompt)
+        default_escalate = not useful_hits
+        default_confidence = 0.45 if default_escalate else 0.78
+        structured = _normalize_structured_answer(
+            raw_answer=answer,
+            lang=lang,
+            default_confidence=default_confidence,
+            default_escalate=default_escalate,
+        )
         user_context_used = {
             "user_id": user.get("user_id"),
             "plan": user.get("plan"),
@@ -139,11 +219,9 @@ def answer_support_question(ticket_id: str, question: str, reindex: bool = False
         }
         return {
             "ticket_id": ticket_id,
-            "answer": answer.strip(),
+            **structured,
             "sources": _render_sources(useful_hits),
             "user_context_used": user_context_used,
-            "ticket": ticket,
-            "user": user,
         }
     finally:
         rag.store.close()
