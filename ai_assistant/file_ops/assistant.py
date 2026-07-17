@@ -8,17 +8,30 @@ from pathlib import Path
 from .tools import changed_files, git_diff, read_project_file, search_project_files, write_project_file
 
 
-def _render_find_usage(query: str) -> str:
-    hits = search_project_files(query=query, root="ai_assistant")
+def _render_find_usage(query: str, roots: list[str]) -> str:
+    hits = search_project_files(query=query, roots=roots)
     grouped: dict[str, list[dict]] = defaultdict(list)
     for hit in hits:
         grouped[hit["path"]].append(hit)
+    by_root: dict[str, int] = defaultdict(int)
+    for path in grouped:
+        top = path.split("/", 2)[:2]
+        root_hint = "/".join(top) if len(top) == 2 else path
+        by_root[root_hint] += len(grouped[path])
 
     lines: list[str] = []
     lines.append(f"# Find Usage Report: `{query}`")
     lines.append("")
+    lines.append(f"- Search roots: {', '.join(f'`{r}`' for r in roots)}")
     lines.append(f"- Matched files: **{len(grouped)}**")
     lines.append(f"- Total matches: **{len(hits)}**")
+    lines.append("")
+
+    lines.append("## Match Hierarchy")
+    for root_hint in sorted(by_root.keys()):
+        lines.append(f"- `{root_hint}`: {by_root[root_hint]} matches")
+    if not by_root:
+        lines.append("- no hierarchy matches")
     lines.append("")
 
     lines.append("## Matched Files")
@@ -57,7 +70,8 @@ def _render_find_usage(query: str) -> str:
 
 
 def cmd_find_usage(args: argparse.Namespace) -> int:
-    report = _render_find_usage(args.query)
+    roots = args.root or ["ai_assistant"]
+    report = _render_find_usage(args.query, roots)
     print(report)
     return 0
 
@@ -188,6 +202,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_find = sub.add_parser("find-usage", help="search and analyze symbol usage")
     p_find.add_argument("query", help="text to search for")
+    p_find.add_argument(
+        "--root",
+        action="append",
+        default=[],
+        help="search root under ai_assistant/ (repeatable)",
+    )
     p_find.set_defaults(func=cmd_find_usage)
 
     p_changelog = sub.add_parser("changelog", help="generate changelog from current changes")

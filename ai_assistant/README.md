@@ -371,6 +371,7 @@ Build an assistant that actively works with project files, not just plain Q&A:
 ```bash
 python -m compileall ai_assistant/file_ops
 python -m ai_assistant.file_ops.assistant find-usage RAG_INCLUDE
+python -m ai_assistant.file_ops.assistant find-usage RAG_INCLUDE --root ai_assistant --root ai_assistant/support --root ai_assistant/file_ops
 python -m ai_assistant.file_ops.assistant rules-check
 python -m ai_assistant.file_ops.assistant changelog --output ai_assistant/CHANGELOG.md
 git diff -- ai_assistant/CHANGELOG.md ai_assistant/README.md ai_assistant/file_ops
@@ -381,6 +382,7 @@ git diff -- ai_assistant/CHANGELOG.md ai_assistant/README.md ai_assistant/file_o
 1. **Find usage across multiple files**
    - Goal: find where `RAG_INCLUDE` is used and explain consistency risks.
    - Command: `python -m ai_assistant.file_ops.assistant find-usage RAG_INCLUDE`
+   - Optional hierarchical roots: `--root ai_assistant --root ai_assistant/support --root ai_assistant/file_ops`
 2. **Generate a real project artifact**
    - Goal: create `ai_assistant/CHANGELOG.md` from current file changes.
    - Command: `python -m ai_assistant.file_ops.assistant changelog --output ai_assistant/CHANGELOG.md`

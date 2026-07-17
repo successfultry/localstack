@@ -61,33 +61,48 @@ def read_project_file(path: str) -> str:
     return target.read_text(encoding="utf-8")
 
 
-def search_project_files(query: str, root: str = "ai_assistant") -> list[dict[str, Any]]:
+def search_project_files(query: str, roots: list[str] | None = None) -> list[dict[str, Any]]:
     query = query.strip()
     if not query:
         raise ValueError("query is required")
-    root_path = _resolve_project_path(root)
-    if not root_path.exists() or not root_path.is_dir():
-        raise FileNotFoundError(root)
+    roots = roots or ["ai_assistant"]
+
+    root_paths: list[Path] = []
+    seen_roots: set[str] = set()
+    for root in roots:
+        root_path = _resolve_project_path(root)
+        if not root_path.exists() or not root_path.is_dir():
+            raise FileNotFoundError(root)
+        key = str(root_path)
+        if key in seen_roots:
+            continue
+        seen_roots.add(key)
+        root_paths.append(root_path)
 
     hits: list[dict[str, Any]] = []
-    for file_path in sorted(root_path.rglob("*")):
-        if not file_path.is_file():
-            continue
-        if file_path.name == ".env" or file_path.suffix.lower() in _BINARY_SUFFIXES:
-            continue
-        text = _read_text(file_path)
-        if not text:
-            continue
-        rel = str(file_path.relative_to(REPO_ROOT)).replace("\\", "/")
-        for idx, line in enumerate(text.splitlines(), start=1):
-            if query in line:
-                hits.append(
-                    {
-                        "path": rel,
-                        "line": idx,
-                        "snippet": line.strip()[:240],
-                    }
-                )
+    seen_files: set[str] = set()
+    for root_path in root_paths:
+        for file_path in sorted(root_path.rglob("*")):
+            if not file_path.is_file():
+                continue
+            if file_path.name == ".env" or file_path.suffix.lower() in _BINARY_SUFFIXES:
+                continue
+            rel = str(file_path.relative_to(REPO_ROOT)).replace("\\", "/")
+            if rel in seen_files:
+                continue
+            seen_files.add(rel)
+            text = _read_text(file_path)
+            if not text:
+                continue
+            for idx, line in enumerate(text.splitlines(), start=1):
+                if query in line:
+                    hits.append(
+                        {
+                            "path": rel,
+                            "line": idx,
+                            "snippet": line.strip()[:240],
+                        }
+                    )
     return hits
 
 
