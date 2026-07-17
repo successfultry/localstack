@@ -47,6 +47,8 @@ def _run_git(args: list[str], timeout: int = 30) -> str:
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
     )
     if proc.returncode != 0:
