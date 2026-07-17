@@ -24,13 +24,15 @@ ai_assistant/
 │       ├── users.json
 │       ├── tickets.json
 │       └── faq.md
+├── file_ops/        # Day 34 file operations assistant
+│   ├── assistant.py # CLI scenarios: find-usage, changelog, rules-check
+│   └── tools.py     # read/search/write/diff helpers (scoped to ai_assistant/)
 ├── requirements.txt
 ├── .env.example
 └── README.md
 ```
 
-No extra packages/subfolders — one file per responsibility. `reviewer.py` is added only when
-Day 32 (PR code review) starts.
+`reviewer.py` appears on Day 32, `support/` on Day 33, and `file_ops/` on Day 34.
 
 ## Setup
 
@@ -339,6 +341,61 @@ curl -s -X POST "http://127.0.0.1:8787/support/answer" \
 4. Start HTTP service, hit `/health`.
 5. Call `/support/answer` via `curl` and show JSON response.
 
+## Day 34 — File Operations Assistant
+
+### Goal
+
+Build an assistant that actively works with project files, not just plain Q&A:
+
+- read files
+- search across multiple files
+- analyze content
+- create/update files with reproducible output
+
+### Architecture
+
+- `file_ops/tools.py`:
+  - `read_project_file(path)`
+  - `search_project_files(query, root="ai_assistant")`
+  - `write_project_file(path, content)`
+  - `changed_files()`
+  - `git_diff(paths=None)`
+  - all paths are constrained to `ai_assistant/` only
+- `file_ops/assistant.py`:
+  - `find-usage <query>`: search + cross-file analysis report
+  - `changelog --output ai_assistant/CHANGELOG.md`: generate/update changelog from current changes
+  - `rules-check`: verify Week 7 invariants
+
+### Day 34 run commands
+
+```bash
+python -m compileall ai_assistant/file_ops
+python -m ai_assistant.file_ops.assistant find-usage RAG_INCLUDE
+python -m ai_assistant.file_ops.assistant rules-check
+python -m ai_assistant.file_ops.assistant changelog --output ai_assistant/CHANGELOG.md
+git diff -- ai_assistant/CHANGELOG.md ai_assistant/README.md ai_assistant/file_ops
+```
+
+### Scenario examples
+
+1. **Find usage across multiple files**
+   - Goal: find where `RAG_INCLUDE` is used and explain consistency risks.
+   - Command: `python -m ai_assistant.file_ops.assistant find-usage RAG_INCLUDE`
+2. **Generate a real project artifact**
+   - Goal: create `ai_assistant/CHANGELOG.md` from current file changes.
+   - Command: `python -m ai_assistant.file_ops.assistant changelog --output ai_assistant/CHANGELOG.md`
+3. **Check project invariants**
+   - Goal: validate RAG include constraints and docs alignment.
+   - Command: `python -m ai_assistant.file_ops.assistant rules-check`
+
+### Day 34 video flow
+
+1. Show `ai_assistant/file_ops/tools.py` and the scoped file tooling.
+2. Run `find-usage RAG_INCLUDE` and show report across multiple files.
+3. Run `rules-check` and show PASS/FAIL output.
+4. Run `changelog --output ai_assistant/CHANGELOG.md`.
+5. Show `git diff` for generated file and README update.
+
 ## Progress
 
 | Day | Task | Commands | Code | Status | Video |
@@ -346,3 +403,4 @@ curl -s -X POST "http://127.0.0.1:8787/support/answer" \
 | 31 | Developer assistant: RAG over README/docs/openapi + MCP git context + `/help` | `-m ai_assistant.main --reindex`, then `/help ...`, `/branch`, `/files ai_assistant` | `config.py`, `llm_client.py`, `rag.py`, `store.py`, `git_tools.py`, `cli.py`, `main.py` | done | _link_ |
 | 32 | Reactive AI code review on PR (`pull_request` trigger, summary comment) | `-m ai_assistant.reviewer --reindex-only`, workflow run on PR | `reviewer.py`, `.github/workflows/ai-review.yml` | done | _link_ |
 | 33 | User support assistant (CRM JSON + MCP tools + RAG FAQ/docs + HTTP mini-service) | `-m ai_assistant.support.assistant --ticket ... --question ...`, optional `-m ai_assistant.support.service` | `support/crm_tools.py`, `support/assistant.py`, `support/service.py`, `support/data/*`, `config.py`, `.env.example`, `README.md` | done | _link_ |
+| 34 | File operations assistant (search/read/analyze/write with reproducible outputs) | `-m ai_assistant.file_ops.assistant find-usage ...`, `rules-check`, `changelog --output ...` | `file_ops/tools.py`, `file_ops/assistant.py`, `README.md`, `CHANGELOG.md` | done | _link_ |
